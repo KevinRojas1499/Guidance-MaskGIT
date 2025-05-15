@@ -14,8 +14,9 @@ class ConstantSchedule(GuidanceSchedule):
     def __init__(self, scale) -> None:
         super().__init__(scale)
     
-    def __call__(self, t):
-        return torch.ones_like(t) * self.scale
+    def __call__(self, t, w=None):
+        scale = self.scale if w is None else w
+        return torch.ones_like(t) * scale
 
 class IntervalSchedule(GuidanceSchedule):
     def __init__(self, scale, left=0., right=1.) -> None:
@@ -23,8 +24,9 @@ class IntervalSchedule(GuidanceSchedule):
         self.left = left
         self.right = right
     
-    def __call__(self, t):
-        return torch.where((t >= self.left) & (t <= self.right), self.scale, 1.) 
+    def __call__(self, t, w=None):
+        scale = self.scale if w is None else w
+        return torch.where((t >= self.left) & (t <= self.right), scale, 0.) 
 
 class LinearSchedule(GuidanceSchedule):
     def __init__(self, scale) -> None:

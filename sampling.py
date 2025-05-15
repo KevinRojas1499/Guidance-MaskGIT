@@ -12,6 +12,7 @@ from huggingface_hub import hf_hub_download
 
 from Trainer.cls_trainer import MaskGIT
 from Sampler.diffusion_sampler import TauLeapingSampler, TauLeapingSamplerWrong, SimpleGuidance
+from my_stuff.guidance_schedules import get_guidance_schedule
 
 def setup_distributed():
     """Initialize distributed training setup."""
@@ -40,13 +41,17 @@ def unprocess(img):
 @click.option('--config', default="Config/base_cls2img.yaml", help='Path to config file')
 @click.option('--sampler', type=click.Choice(['tau', 'tau-wrong', 'simple']), 
               default='tau', help='Sampling method to use')
+@click.option('--guid_sched', type=click.Choice(['constant', 'interval']), 
+              default='constant', help='Guidance Schedule to use')
+@click.option('--left_guid', default=0., help='Left endpoint for guidance interval')
+@click.option('--right_guid', default=1., help='Right endpoint for guidance interval')
 @click.option('--num_samples', default=50000, help='Number of samples to generate')
 @click.option('--batch_size', default=125, help='Per GPU Batch size for generation')
 @click.option('--steps', default=50, help='Number of sampling steps')
 @click.option('--seed', default=0, help='Random seed')
-@click.option('--w', default=0, help='Guidance weight parameter')
+@click.option('--w', default=0., type=float, help='Guidance weight parameter')
 @click.option('--out_dir', type=str, help='Directory to save the samples')
-def sample(config, sampler, num_samples, batch_size, steps, seed, w, out_dir):
+def sample(config, sampler, guid_sched, left_guid, right_guid, num_samples, batch_size, steps, seed, w, out_dir):
     rank, world_size = setup_distributed()
     torch.manual_seed(seed + rank)
     device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() else "cpu")
@@ -67,15 +72,16 @@ def sample(config, sampler, num_samples, batch_size, steps, seed, w, out_dir):
 
     dist.barrier()
     
+    guid_schedule = get_guidance_schedule(guid_sched, w, left=left_guid, right=right_guid)
     model = MaskGIT(args)
     local_num_samples = num_samples // world_size + 1
 
     if sampler == 'tau':
-        sampler_obj = TauLeapingSampler(model)
+        sampler_obj = TauLeapingSampler(model, guidance_schedule=guid_schedule)
     elif sampler == 'tau-wrong':
-        sampler_obj = TauLeapingSamplerWrong(model)
+        sampler_obj = TauLeapingSamplerWrong(model, guidance_schedule=guid_schedule)
     elif sampler == 'simple':
-        sampler_obj = SimpleGuidance(model)
+        sampler_obj = SimpleGuidance(model, guidance_schedule=guid_schedule)
     
 
     out_dir = os.path.join(out_dir, f'Rank-{rank}')

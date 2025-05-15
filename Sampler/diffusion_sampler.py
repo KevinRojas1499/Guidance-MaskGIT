@@ -13,7 +13,7 @@ class BaseSampler(abc.ABC):
         pass
    
 class TauLeapingSampler(BaseSampler):
-    def __init__(self, maskgit):
+    def __init__(self, maskgit, guidance_schedule):
         self.maskgit = maskgit
         self.N = self.maskgit.args.codebook_size + 1 # 1025
         # print(maskgit.args)
@@ -21,6 +21,7 @@ class TauLeapingSampler(BaseSampler):
         self.D = self.patch_size ** 2 # 16*16 or 32*32
         self.device = self.maskgit.args.device
         self.noise = Absorbing(self.N)
+        self.guid_sched = guidance_schedule
 
     @torch.no_grad()
     @torch.amp.autocast(device_type='cuda')
@@ -37,7 +38,7 @@ class TauLeapingSampler(BaseSampler):
                                     torch.cat([labels, labels], dim=0), # condition class, B
                                     torch.cat([~drop, drop], dim=0)) # drop label, B
             logit_c, logit_u = torch.chunk(logit, 2, dim=0)
-            _w = w  # * (1 - t)[...,None,None]
+            _w = self.guid_sched(t, w)[0].item()
             # Classifier Free Guidance, 
             # guidance strength is linearly increased from 0 to w
             logit = (1 + _w) * logit_c - _w * logit_u
@@ -93,7 +94,7 @@ class TauLeapingSampler(BaseSampler):
         return x, self.maskgit.ae.decode_code(x.view(batch_num, self.patch_size, self.patch_size))
     
 class TauLeapingSamplerWrong(BaseSampler):
-    def __init__(self, maskgit):
+    def __init__(self, maskgit, guidance_schedule):
         self.maskgit = maskgit
         self.N = self.maskgit.args.codebook_size + 1 # 1025
         # print(maskgit.args)
@@ -101,6 +102,7 @@ class TauLeapingSamplerWrong(BaseSampler):
         self.D = self.patch_size ** 2 # 16*16 or 32*32
         self.device = self.maskgit.args.device
         self.noise = Absorbing(self.N)
+        self.guid_sched = guidance_schedule
     
     def get_prob(self, logits, x, sm_temp):
         prob = torch.softmax(logits * sm_temp, -1)
@@ -124,13 +126,11 @@ class TauLeapingSamplerWrong(BaseSampler):
             logit_c, logit_u = torch.chunk(logit, 2, dim=0)
             prob_c = self.get_prob(logit_c, x, sm_temp=sm_temp)
             prob_u = self.get_prob(logit_u, x, sm_temp=sm_temp)
-            _w = w  # * (1 - t)[...,None,None]
+            _w = self.guid_sched(t, w)[0].item()
             # Classifier Free Guidance, 
-            # guidance strength is linearly increased from 0 to w
-            # logit = (1 + _w) * logit_c - _w * logit_u
-            log_prob_c = torch.log(prob_c + 1e-10)  # Add small epsilon to avoid log(0)
+            log_prob_c = torch.log(prob_c + 1e-10) 
             log_prob_u = torch.log(prob_u + 1e-10)
-            log_prob = _w * log_prob_c + (1-_w) * log_prob_u
+            log_prob = (1+_w) * log_prob_c - _w * log_prob_u
             prob = torch.exp(log_prob) # Notice that this is unnormalized
         else:
             logit = self.maskgit.vit(x_.clone(), labels, drop_label=~drop)
@@ -179,7 +179,7 @@ class TauLeapingSamplerWrong(BaseSampler):
         return x, self.maskgit.ae.decode_code(x.view(batch_num, self.patch_size, self.patch_size))
 
 class SimpleGuidance(BaseSampler):
-    def __init__(self, maskgit):
+    def __init__(self, maskgit, guidance_schedule):
         self.maskgit = maskgit
         self.N = self.maskgit.args.codebook_size + 1 # 1025
         # print(maskgit.args)
@@ -187,6 +187,7 @@ class SimpleGuidance(BaseSampler):
         self.D = self.patch_size ** 2 # 16*16 or 32*32
         self.device = self.maskgit.args.device
         self.noise = Absorbing(self.N)
+        self.guid_sched = guidance_schedule
 
 
     @torch.no_grad()
@@ -204,7 +205,7 @@ class SimpleGuidance(BaseSampler):
                                     torch.cat([labels, labels], dim=0), # condition class, B
                                     torch.cat([~drop, drop], dim=0)) # drop label, B
             logit_c, logit_u = torch.chunk(logit, 2, dim=0)
-            _w = w  # * (1 - t)[...,None,None]
+            _w = self.guid_sched(t, w)[0].item()
             # Classifier Free Guidance, 
             # guidance strength is linearly increased from 0 to w
             logit = (1 + _w) * logit_c - _w * logit_u
