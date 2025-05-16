@@ -28,6 +28,27 @@ class IntervalSchedule(GuidanceSchedule):
         scale = self.scale if w is None else w
         return torch.where((t >= self.left) & (t <= self.right), scale, 0.) 
 
+class LinearRampUp(GuidanceSchedule):
+    def __init__(self, scale, left=0., right=1.) -> None:
+        super().__init__(scale)
+        self.left = left
+        self.right = right
+    
+    def __call__(self, t, w=None):
+        scale = self.scale if w is None else w
+        in_interval = (t >= self.left) & (t <= self.right)
+        right_mask  = (t >= self.right)
+        left_mask   = (t <= self.left) 
+
+        result = torch.ones_like(t)
+        result = torch.where(in_interval, scale, 0.)
+        if self.right < 1.:
+            result = torch.where(right_mask, scale * (t-1)/(self.right-1), result)
+        result = torch.where(left_mask, scale * t/self.left, result)
+        
+        return result
+    
+    
 class LinearSchedule(GuidanceSchedule):
     def __init__(self, scale) -> None:
         super().__init__(scale)
@@ -79,6 +100,8 @@ def get_guidance_schedule(name, scale, **kwargs):
         return IntervalSchedule(scale=scale, **kwargs)
     elif name == 'linear':
         return LinearSchedule(scale)
+    elif name == 'linear-ramp-up':
+        return LinearRampUp(scale=scale, **kwargs)
     elif name == 'inv-linear':
         return InverseLinearSchedule(scale)
     elif name == 'cosine':

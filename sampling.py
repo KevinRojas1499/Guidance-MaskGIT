@@ -41,7 +41,7 @@ def unprocess(img):
 @click.option('--config', default="Config/base_cls2img.yaml", help='Path to config file')
 @click.option('--sampler', type=click.Choice(['tau', 'tau-wrong', 'simple']), 
               default='tau', help='Sampling method to use')
-@click.option('--guid_sched', type=click.Choice(['constant', 'interval']), 
+@click.option('--guid_sched', type=click.Choice(['constant', 'interval', 'linear-ramp-up']), 
               default='constant', help='Guidance Schedule to use')
 @click.option('--left_guid', default=0., help='Left endpoint for guidance interval')
 @click.option('--right_guid', default=1., help='Right endpoint for guidance interval')

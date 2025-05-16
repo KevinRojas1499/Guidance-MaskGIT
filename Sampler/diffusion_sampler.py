@@ -16,7 +16,6 @@ class TauLeapingSampler(BaseSampler):
     def __init__(self, maskgit, guidance_schedule):
         self.maskgit = maskgit
         self.N = self.maskgit.args.codebook_size + 1 # 1025
-        # print(maskgit.args)
         self.patch_size = maskgit.input_size # 16 or 32
         self.D = self.patch_size ** 2 # 16*16 or 32*32
         self.device = self.maskgit.args.device
@@ -97,7 +96,6 @@ class TauLeapingSamplerWrong(BaseSampler):
     def __init__(self, maskgit, guidance_schedule):
         self.maskgit = maskgit
         self.N = self.maskgit.args.codebook_size + 1 # 1025
-        # print(maskgit.args)
         self.patch_size = maskgit.input_size # 16 or 32
         self.D = self.patch_size ** 2 # 16*16 or 32*32
         self.device = self.maskgit.args.device
@@ -182,7 +180,6 @@ class SimpleGuidance(BaseSampler):
     def __init__(self, maskgit, guidance_schedule):
         self.maskgit = maskgit
         self.N = self.maskgit.args.codebook_size + 1 # 1025
-        # print(maskgit.args)
         self.patch_size = maskgit.input_size # 16 or 32
         self.D = self.patch_size ** 2 # 16*16 or 32*32
         self.device = self.maskgit.args.device
