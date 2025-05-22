@@ -11,7 +11,7 @@ from Utils.viz import show_images_grid
 from huggingface_hub import hf_hub_download
 
 from Trainer.cls_trainer import MaskGIT
-from Sampler.diffusion_sampler import TauLeapingSampler, TauLeapingSamplerWrong, SimpleGuidance
+from Sampler.diffusion_sampler import TauLeapingSampler, TauLeapingUnlocking, SimpleGuidance
 from my_stuff.guidance_schedules import get_guidance_schedule
 
 def setup_distributed():
@@ -39,7 +39,7 @@ def unprocess(img):
 
 @click.command()
 @click.option('--config', default="Config/base_cls2img.yaml", help='Path to config file')
-@click.option('--sampler', type=click.Choice(['tau', 'tau-wrong', 'simple']), 
+@click.option('--sampler', type=click.Choice(['tau', 'unlocking', 'simple']), 
               default='tau', help='Sampling method to use')
 @click.option('--guid_sched', type=click.Choice(['constant', 'interval', 'linear-ramp-up']), 
               default='constant', help='Guidance Schedule to use')
@@ -78,8 +78,8 @@ def sample(config, sampler, guid_sched, left_guid, right_guid, num_samples, batc
 
     if sampler == 'tau':
         sampler_obj = TauLeapingSampler(model, guidance_schedule=guid_schedule)
-    elif sampler == 'tau-wrong':
-        sampler_obj = TauLeapingSamplerWrong(model, guidance_schedule=guid_schedule)
+    elif sampler == 'unlocking':
+        sampler_obj = TauLeapingUnlocking(model, guidance_schedule=guid_schedule)
     elif sampler == 'simple':
         sampler_obj = SimpleGuidance(model, guidance_schedule=guid_schedule)
     
